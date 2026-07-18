@@ -1,0 +1,1 @@
+export type Mood='happy'|'sad'|'calm'|'angry'|'tired'|'excited';export type Weather='sunny'|'cloudy'|'rainy'|'snowy'|'windy';export type Diary={id:string;user_id:string;title:string;content:string;mood:Mood;weather:Weather|null;image_paths:string[];diary_date:string;created_at:string;updated_at:string};
