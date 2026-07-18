@@ -1,33 +1,366 @@
-import {useEffect,useMemo,useState} from 'react';
-import {Alert,FlatList,Pressable,Text,TextInput,View} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {StatusBar} from 'expo-status-bar';
-import {router} from 'expo-router';
-import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import {supabase} from '@/lib/supabase';
-import type {Diary,Mood} from '@/lib/types';
+import { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { router } from "expo-router";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+import { supabase } from "@/lib/supabase";
+import { PrivateImage } from "@/components/PrivateImage";
+import type { Diary, Mood } from "@/lib/types";
 
-const moods:Record<Mood,string>={happy:'😊 开心',sad:'😔 难过',calm:'🌿 平静',angry:'😠 生气',tired:'😴 疲惫',excited:'✨ 兴奋'};
-const moodKeys:(Mood|'')[]=['','happy','sad','calm','angry','tired','excited'];
-const count=(text:string)=>text.replace(/\s/g,'').length;
+const moods: Record<Mood, string> = {
+  happy: "😊 开心",
+  sad: "😔 难过",
+  calm: "🌿 平静",
+  angry: "😠 生气",
+  tired: "😴 疲惫",
+  excited: "✨ 兴奋",
+};
+const moodKeys: (Mood | "")[] = [
+  "",
+  "happy",
+  "sad",
+  "calm",
+  "angry",
+  "tired",
+  "excited",
+];
+const count = (text: string) => text.replace(/\s/g, "").length;
 
-export default function Home(){
- const [session,setSession]=useState<any>(),[unlocked,setUnlocked]=useState(false),[pin,setPin]=useState(''),[hasBiometrics,setHasBiometrics]=useState(false),[hasPin,setHasPin]=useState(false),[items,setItems]=useState<Diary[]>([]),[query,setQuery]=useState(''),[filter,setFilter]=useState<Mood|''>(''),[loading,setLoading]=useState(false);
- useEffect(()=>{supabase.auth.getSession().then(x=>setSession(x.data.session));const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>subscription.unsubscribe()},[]);
- useEffect(()=>{if(session)void prepareLock()},[session]);
- useEffect(()=>{if(unlocked)void load()},[unlocked,query,filter]);
- async function prepareLock(){const [hardware,enrolled,saved]=await Promise.all([LocalAuthentication.hasHardwareAsync(),LocalAuthentication.isEnrolledAsync(),SecureStore.getItemAsync('shudong-pin')]);setHasBiometrics(hardware&&enrolled);setHasPin(Boolean(saved))}
- async function biometricUnlock(){const result=await LocalAuthentication.authenticateAsync({promptMessage:'使用指纹解锁树洞',cancelLabel:'取消',disableDeviceFallback:true});if(result.success)setUnlocked(true)}
- async function pinUnlock(){if(!/^\d{6}$/.test(pin))return Alert.alert('请输入 6 位 PIN');const saved=await SecureStore.getItemAsync('shudong-pin');if(!saved){await SecureStore.setItemAsync('shudong-pin',pin);setHasPin(true);setUnlocked(true)}else if(saved===pin)setUnlocked(true);else Alert.alert('PIN 不正确')}
- async function load(){setLoading(true);let q:any=supabase.from('diaries').select('*').order('diary_date',{ascending:false}).order('created_at',{ascending:false});if(filter)q=q.eq('mood',filter);if(query){const safe=query.replace(/[%_,()]/g,'');q=q.or(`title.ilike.%${safe}%,content.ilike.%${safe}%`)}const {data,error}=await q;if(error)Alert.alert('加载失败','请检查网络后重试。');else setItems((data??[]) as Diary[]);setLoading(false)}
- async function exportAll(){try{const uri=FileSystem.cacheDirectory+'shudong-export.json';await FileSystem.writeAsStringAsync(uri,JSON.stringify({exported_at:new Date().toISOString(),diaries:items},null,2));await Sharing.shareAsync(uri,{mimeType:'application/json'})}catch{Alert.alert('导出失败','暂时无法生成分享文件，请稍后重试。')}}
- const stats=useMemo(()=>({month:items.filter(x=>x.diary_date.slice(0,7)===new Date().toISOString().slice(0,7)).length,words:items.reduce((n,x)=>n+count(x.content),0)}),[items]);
- if(!session)return <Auth/>;
- if(!unlocked)return <SafeAreaView edges={['top','bottom']} className="flex-1 items-center justify-center bg-cream px-7"><StatusBar style="dark"/><View className="mb-4 h-16 w-16 items-center justify-center rounded-3xl bg-white"><Text className="text-3xl">🔐</Text></View><Text className="text-2xl font-bold text-ink">树洞已上锁</Text><Text className="mb-6 mt-2 text-center text-sm leading-6 text-brown">选择一种方式，继续进入你的私人空间</Text>{hasBiometrics&&<Pressable onPress={biometricUnlock} className="mb-3 w-full rounded-2xl bg-sage p-4"><Text className="text-center font-bold text-white">☝ 使用指纹解锁</Text></Pressable>}<View className="my-1 flex-row items-center"><View className="h-px flex-1 bg-stone-300"/><Text className="mx-3 text-xs text-brown">{hasBiometrics?'或者':'使用 PIN'}</Text><View className="h-px flex-1 bg-stone-300"/></View><TextInput secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin} placeholder={hasPin?'输入 6 位 PIN':'设置 6 位 PIN'} className="mt-3 w-full rounded-2xl bg-white p-4 text-center text-xl tracking-widest"/><Pressable onPress={pinUnlock} className="mt-3 w-full rounded-2xl border border-sage p-4"><Text className="text-center font-bold text-sage">{hasPin?'使用 PIN 解锁':'设置 PIN 并进入'}</Text></Pressable>{!hasBiometrics&&<Text className="mt-4 text-center text-xs leading-5 text-brown">设备未录入指纹，请先在系统设置中添加，或使用 PIN。</Text>}</SafeAreaView>;
- return <SafeAreaView edges={['top']} className="flex-1 bg-cream"><StatusBar style="dark"/><FlatList data={items} keyExtractor={x=>x.id} refreshing={loading} onRefresh={load} contentContainerStyle={{paddingHorizontal:16,paddingBottom:96}} ListHeaderComponent={<View className="pb-3 pt-1"><View className="flex-row items-center"><View className="flex-1"><Text className="text-2xl font-bold text-ink">我的树洞</Text><Text className="text-sm text-brown">把心事轻轻放在这里</Text></View><Pressable onPress={exportAll} className="rounded-xl bg-white px-3 py-2"><Text className="text-sm text-ink">导出</Text></Pressable><Pressable onPress={()=>supabase.auth.signOut()} className="ml-2 rounded-xl bg-white px-3 py-2"><Text className="text-sm text-ink">退出</Text></Pressable></View><View className="mt-3 flex-row gap-2"><Stat value={items.length} label="当前记录"/><Stat value={stats.month} label="本月写下"/><Stat value={stats.words} label="累计字数"/></View><TextInput value={query} onChangeText={setQuery} placeholder="搜索标题或正文..." className="mt-3 rounded-xl bg-white px-4 py-3"/><FlatList horizontal showsHorizontalScrollIndicator={false} data={moodKeys} keyExtractor={x=>x||'all'} renderItem={({item})=><Pressable onPress={()=>setFilter(item)} className={`mr-2 mt-2 rounded-full px-3 py-1.5 ${filter===item?'bg-sage':'bg-white'}`}><Text className={`text-sm ${filter===item?'text-white':'text-ink'}`}>{item?moods[item]:'全部'}</Text></Pressable>}/><View className="mt-4 flex-row items-end"><Text className="flex-1 text-lg font-bold text-ink">时光记录</Text><Text className="text-xs text-brown">{loading?'正在整理...':`${items.length} 篇日记`}</Text></View></View>} ListEmptyComponent={<View className="items-center py-10"><Text className="text-4xl">🌱</Text><Text className="mt-3 text-lg font-bold text-ink">这里还很安静</Text><Text className="mt-1 text-sm text-brown">写下第一篇记录，让时间在这里生根。</Text></View>} renderItem={({item})=><Pressable onPress={()=>router.push({pathname:'/editor',params:{id:item.id}})} className="mb-3 rounded-2xl bg-white p-4"><View className="flex-row items-center"><Text className="text-xs text-brown">{item.diary_date}</Text><Text className="ml-2 rounded-full bg-cream px-2 py-1 text-xs text-sage">{moods[item.mood]}</Text></View><Text className="my-2 text-lg font-bold text-ink">{item.title||'无题'}</Text><Text numberOfLines={2} className="text-sm leading-6 text-ink">{item.content}</Text><Text className="mt-2 text-xs text-brown">{count(item.content)} 字 · 约 {Math.max(1,Math.ceil(count(item.content)/400))} 分钟{item.image_paths.length?` · 📷 ${item.image_paths.length}`:''}</Text></Pressable>}/><Pressable onPress={()=>router.push('/editor')} className="absolute bottom-6 right-5 rounded-full bg-sage px-5 py-3.5 shadow-lg"><Text className="font-bold text-white">＋ 写日记</Text></Pressable></SafeAreaView>;
+export default function Home() {
+  const [session, setSession] = useState<any>(),
+    [unlocked, setUnlocked] = useState(false),
+    [pin, setPin] = useState(""),
+    [hasBiometrics, setHasBiometrics] = useState(false),
+    [hasPin, setHasPin] = useState(false),
+    [items, setItems] = useState<Diary[]>([]),
+    [query, setQuery] = useState(""),
+    [filter, setFilter] = useState<Mood | "">(""),
+    [loading, setLoading] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then((x) => setSession(x.data.session));
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    if (session) void prepareLock();
+  }, [session]);
+  useEffect(() => {
+    if (unlocked) void load();
+  }, [unlocked, query, filter]);
+  async function prepareLock() {
+    const [hardware, enrolled, saved] = await Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+      SecureStore.getItemAsync("shudong-pin"),
+    ]);
+    setHasBiometrics(hardware && enrolled);
+    setHasPin(Boolean(saved));
+  }
+  async function biometricUnlock() {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: "使用指纹解锁树洞",
+      cancelLabel: "取消",
+      disableDeviceFallback: true,
+    });
+    if (result.success) setUnlocked(true);
+  }
+  async function pinUnlock() {
+    if (!/^\d{6}$/.test(pin)) return Alert.alert("请输入 6 位 PIN");
+    const saved = await SecureStore.getItemAsync("shudong-pin");
+    if (!saved) {
+      await SecureStore.setItemAsync("shudong-pin", pin);
+      setHasPin(true);
+      setUnlocked(true);
+    } else if (saved === pin) setUnlocked(true);
+    else Alert.alert("PIN 不正确");
+  }
+  async function load() {
+    setLoading(true);
+    let q: any = supabase
+      .from("diaries")
+      .select("*")
+      .order("diary_date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (filter) q = q.eq("mood", filter);
+    if (query) {
+      const safe = query.replace(/[%_,()]/g, "");
+      q = q.or(`title.ilike.%${safe}%,content.ilike.%${safe}%`);
+    }
+    const { data, error } = await q;
+    if (error) Alert.alert("加载失败", "请检查网络后重试。");
+    else setItems((data ?? []) as Diary[]);
+    setLoading(false);
+  }
+  async function exportAll() {
+    try {
+      const uri = FileSystem.cacheDirectory + "shudong-export.json";
+      await FileSystem.writeAsStringAsync(
+        uri,
+        JSON.stringify(
+          { exported_at: new Date().toISOString(), diaries: items },
+          null,
+          2,
+        ),
+      );
+      await Sharing.shareAsync(uri, { mimeType: "application/json" });
+    } catch {
+      Alert.alert("导出失败", "暂时无法生成分享文件，请稍后重试。");
+    }
+  }
+  const stats = useMemo(
+    () => ({
+      month: items.filter(
+        (x) =>
+          x.diary_date.slice(0, 7) === new Date().toISOString().slice(0, 7),
+      ).length,
+      words: items.reduce((n, x) => n + count(x.content), 0),
+    }),
+    [items],
+  );
+  if (!session) return <Auth />;
+  if (!unlocked)
+    return (
+      <SafeAreaView
+        edges={["top", "bottom"]}
+        className="flex-1 items-center justify-center bg-cream px-7"
+      >
+        <StatusBar style="dark" />
+        <View className="mb-4 h-16 w-16 items-center justify-center rounded-3xl bg-white">
+          <Text className="text-3xl">🔐</Text>
+        </View>
+        <Text className="text-2xl font-bold text-ink">树洞已上锁</Text>
+        <Text className="mb-6 mt-2 text-center text-sm leading-6 text-brown">
+          选择一种方式，继续进入你的私人空间
+        </Text>
+        {hasBiometrics && (
+          <Pressable
+            onPress={biometricUnlock}
+            className="mb-3 w-full rounded-2xl bg-sage p-4"
+          >
+            <Text className="text-center font-bold text-white">
+              ☝ 使用指纹解锁
+            </Text>
+          </Pressable>
+        )}
+        <View className="my-1 flex-row items-center">
+          <View className="h-px flex-1 bg-stone-300" />
+          <Text className="mx-3 text-xs text-brown">
+            {hasBiometrics ? "或者" : "使用 PIN"}
+          </Text>
+          <View className="h-px flex-1 bg-stone-300" />
+        </View>
+        <TextInput
+          secureTextEntry
+          keyboardType="number-pad"
+          maxLength={6}
+          value={pin}
+          onChangeText={setPin}
+          placeholder={hasPin ? "输入 6 位 PIN" : "设置 6 位 PIN"}
+          className="mt-3 w-full rounded-2xl bg-white p-4 text-center text-xl tracking-widest"
+        />
+        <Pressable
+          onPress={pinUnlock}
+          className="mt-3 w-full rounded-2xl border border-sage p-4"
+        >
+          <Text className="text-center font-bold text-sage">
+            {hasPin ? "使用 PIN 解锁" : "设置 PIN 并进入"}
+          </Text>
+        </Pressable>
+        {!hasBiometrics && (
+          <Text className="mt-4 text-center text-xs leading-5 text-brown">
+            设备未录入指纹，请先在系统设置中添加，或使用 PIN。
+          </Text>
+        )}
+      </SafeAreaView>
+    );
+  return (
+    <SafeAreaView edges={["top"]} className="flex-1 bg-cream">
+      <StatusBar style="dark" />
+      <FlatList
+        data={items}
+        keyExtractor={(x) => x.id}
+        refreshing={loading}
+        onRefresh={load}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 96 }}
+        ListHeaderComponent={
+          <View className="pb-3 pt-1">
+            <View className="flex-row items-center">
+              <View className="flex-1">
+                <Text className="text-2xl font-bold text-ink">我的树洞</Text>
+                <Text className="text-sm text-brown">把心事轻轻放在这里</Text>
+              </View>
+              <Pressable
+                onPress={exportAll}
+                className="rounded-xl bg-white px-3 py-2"
+              >
+                <Text className="text-sm text-ink">导出</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => supabase.auth.signOut()}
+                className="ml-2 rounded-xl bg-white px-3 py-2"
+              >
+                <Text className="text-sm text-ink">退出</Text>
+              </Pressable>
+            </View>
+            <View className="mt-3 flex-row gap-2">
+              <Stat value={items.length} label="当前记录" />
+              <Stat value={stats.month} label="本月写下" />
+              <Stat value={stats.words} label="累计字数" />
+            </View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="搜索标题或正文..."
+              className="mt-3 rounded-xl bg-white px-4 py-3"
+            />
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={moodKeys}
+              keyExtractor={(x) => x || "all"}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => setFilter(item)}
+                  className={`mr-2 mt-2 rounded-full px-3 py-1.5 ${filter === item ? "bg-sage" : "bg-white"}`}
+                >
+                  <Text
+                    className={`text-sm ${filter === item ? "text-white" : "text-ink"}`}
+                  >
+                    {item ? moods[item] : "全部"}
+                  </Text>
+                </Pressable>
+              )}
+            />
+            <View className="mt-4 flex-row items-end">
+              <Text className="flex-1 text-lg font-bold text-ink">
+                时光记录
+              </Text>
+              <Text className="text-xs text-brown">
+                {loading ? "正在整理..." : `${items.length} 篇日记`}
+              </Text>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          <View className="items-center py-10">
+            <Text className="text-4xl">🌱</Text>
+            <Text className="mt-3 text-lg font-bold text-ink">
+              这里还很安静
+            </Text>
+            <Text className="mt-1 text-sm text-brown">
+              写下第一篇记录，让时间在这里生根。
+            </Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: "/editor", params: { id: item.id } })
+            }
+            className="mb-3 rounded-2xl bg-white p-4"
+          >
+            <View className="flex-row items-center">
+              <Text className="text-xs text-brown">{item.diary_date}</Text>
+              <Text className="ml-2 rounded-full bg-cream px-2 py-1 text-xs text-sage">
+                {moods[item.mood]}
+              </Text>
+            </View>
+            <Text className="my-2 text-lg font-bold text-ink">
+              {item.title || "无题"}
+            </Text>
+            <Text numberOfLines={2} className="text-sm leading-6 text-ink">
+              {item.content}
+            </Text>
+            {item.image_paths.length > 0 && (
+              <View className="mt-3"><PrivateImage path={item.image_paths[0]} className="h-36 w-full rounded-2xl" /></View>
+            )}
+            <Text className="mt-2 text-xs text-brown">
+              {count(item.content)} 字 · 约{" "}
+              {Math.max(1, Math.ceil(count(item.content) / 400))} 分钟
+              {item.image_paths.length
+                ? ` · 📷 ${item.image_paths.length}`
+                : ""}
+            </Text>
+          </Pressable>
+        )}
+      />
+      <Pressable
+        onPress={() => router.push("/editor")}
+        className="absolute bottom-6 right-5 rounded-full bg-sage px-5 py-3.5 shadow-lg"
+      >
+        <Text className="font-bold text-white">＋ 写日记</Text>
+      </Pressable>
+    </SafeAreaView>
+  );
 }
-function Stat({value,label}:{value:number;label:string}){return <View className="flex-1 items-center rounded-xl bg-white py-2.5"><Text className="text-lg font-bold text-ink">{value}</Text><Text className="text-xs text-brown">{label}</Text></View>}
-function Auth(){const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[busy,setBusy]=useState(false);async function go(signup=false){if(!email||!password)return Alert.alert('请填写邮箱和密码');setBusy(true);const {error}=signup?await supabase.auth.signUp({email,password}):await supabase.auth.signInWithPassword({email,password});setBusy(false);if(error)Alert.alert('操作失败',error.message)}return <SafeAreaView className="flex-1 justify-center bg-cream p-6"><Text className="text-5xl">🌳</Text><Text className="mb-2 mt-4 text-3xl font-bold text-ink">回到你的树洞</Text><Text className="mb-7 text-brown">登录后继续记录只属于你的时光</Text><TextInput autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} placeholder="邮箱" className="mb-3 rounded-2xl bg-white p-4"/><TextInput secureTextEntry value={password} onChangeText={setPassword} placeholder="密码" className="mb-3 rounded-2xl bg-white p-4"/><Pressable disabled={busy} onPress={()=>go()} className="rounded-2xl bg-sage p-4"><Text className="text-center font-bold text-white">{busy?'请稍候...':'登录'}</Text></Pressable><Pressable disabled={busy} onPress={()=>go(true)} className="p-4"><Text className="text-center text-sage">创建账户</Text></Pressable></SafeAreaView>}
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <View className="flex-1 items-center rounded-xl bg-white py-2.5">
+      <Text className="text-lg font-bold text-ink">{value}</Text>
+      <Text className="text-xs text-brown">{label}</Text>
+    </View>
+  );
+}
+function Auth() {
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [busy, setBusy] = useState(false);
+  async function go(signup = false) {
+    if (!email || !password) return Alert.alert("请填写邮箱和密码");
+    setBusy(true);
+    const { error } = signup
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+    setBusy(false);
+    if (error) Alert.alert("操作失败", error.message);
+  }
+  return (
+    <SafeAreaView className="flex-1 justify-center bg-cream p-6">
+      <Text className="text-5xl">🌳</Text>
+      <Text className="mb-2 mt-4 text-3xl font-bold text-ink">
+        回到你的树洞
+      </Text>
+      <Text className="mb-7 text-brown">登录后继续记录只属于你的时光</Text>
+      <TextInput
+        autoCapitalize="none"
+        keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
+        placeholder="邮箱"
+        className="mb-3 rounded-2xl bg-white p-4"
+      />
+      <TextInput
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        placeholder="密码"
+        className="mb-3 rounded-2xl bg-white p-4"
+      />
+      <Pressable
+        disabled={busy}
+        onPress={() => go()}
+        className="rounded-2xl bg-sage p-4"
+      >
+        <Text className="text-center font-bold text-white">
+          {busy ? "请稍候..." : "登录"}
+        </Text>
+      </Pressable>
+      <Pressable disabled={busy} onPress={() => go(true)} className="p-4">
+        <Text className="text-center text-sage">创建账户</Text>
+      </Pressable>
+    </SafeAreaView>
+  );
+}

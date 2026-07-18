@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+dist-test/
+dist-verify/
+dist/
+android/
+ios/
+*.log
+.env.example

@@ -1,1 +1,57 @@
-{"expo":{"name":"我的树洞","slug":"shudong","scheme":"shudong","version":"1.0.0","orientation":"portrait","userInterfaceStyle":"automatic","plugins":["expo-router",["expo-local-authentication",{"faceIDPermission":"允许树洞使用面容 ID 保护你的私人日记"}],"expo-secure-store",["expo-image-picker",{"photosPermission":"允许树洞选择日记照片"}]],"ios":{"supportsTablet":true,"bundleIdentifier":"com.example.shudong","infoPlist":{"NSFaceIDUsageDescription":"使用面容 ID 解锁你的私人树洞"}},"android":{"package":"com.example.shudong","permissions":["USE_BIOMETRIC"]},"experiments":{"typedRoutes":true}}}
+{
+  "expo": {
+    "name": "我的树洞",
+    "slug": "shudong",
+    "scheme": "shudong",
+    "version": "1.0.0",
+    "icon": "./assets/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "plugins": [
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "允许树洞使用面容 ID 保护你的私人日记"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许树洞选择日记照片"
+        }
+      ],
+      "expo-asset"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cxhs.shudong",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "使用面容 ID 解锁你的私人树洞"
+      }
+    },
+    "android": {
+      "package": "com.cxhs.shudong",
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F7F1E7"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d4160be2-ef6d-4cf8-bf73-22c7a75730c6"
+      }
+    }
+  }
+}
