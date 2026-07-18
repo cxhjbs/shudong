@@ -6,3 +6,5 @@ dist
 web/public/sw.js
 web/public/workbox-*.js
 mobile/.env
+tmp/ 
+"tmp/" 

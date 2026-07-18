@@ -513,7 +513,7 @@ function Editor({
               className={`tab ${preview ? "selected" : ""}`}
               onClick={() => setPreview(true)}
             >
-              预览
+              排版效果
             </button>
             <span className="ml-auto pb-2 text-xs text-stone-400">
               {count} 字 · 约 {Math.max(1, Math.ceil(count / 400))} 分钟阅读
@@ -521,9 +521,7 @@ function Editor({
           </div>
           {preview ? (
             <div className="min-h-80 rounded-2xl bg-stone-50 p-5 dark:bg-stone-800">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {value.content || "*还没有内容*"}
-              </ReactMarkdown>
+              {value.content.trim() ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{value.content}</ReactMarkdown> : <p className="text-center text-sm text-stone-500">写下正文后，可在这里检查标题、列表、引用和链接的最终排版。</p>}
             </div>
           ) : (
             <textarea

@@ -1,45 +1,5 @@
-"use client";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-export function PrivateImage({
-  path,
-  className = "h-28 w-28 rounded-xl",
-}: {
-  path: string;
-  className?: string;
-}) {
-  const [url, setUrl] = useState(""),
-    [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let active = true;
-    supabase.storage
-      .from("diary-images")
-      .createSignedUrl(path, 3600)
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error || !data) setFailed(true);
-        else setUrl(data.signedUrl);
-      });
-    return () => {
-      active = false;
-    };
-  }, [path]);
-  if (failed)
-    return (
-      <div
-        className={`${className} grid place-items-center bg-stone-100 text-xs text-stone-400`}
-      >
-        无法预览
-      </div>
-    );
-  if (!url)
-    return <div className={`${className} animate-pulse bg-stone-100`} />;
-  return (
-    <img
-      src={url}
-      alt="日记照片"
-      loading="lazy"
-      className={`${className} object-cover`}
-    />
-  );
-}
+'use client';
+import {useEffect,useState} from 'react';
+import {Download,X} from 'lucide-react';
+import {supabase} from '@/lib/supabase';
+export function PrivateImage({path,className='h-28 w-28 rounded-xl'}:{path:string;className?:string}){const [url,setUrl]=useState(''),[failed,setFailed]=useState(false),[open,setOpen]=useState(false);useEffect(()=>{let active=true;supabase.storage.from('diary-images').createSignedUrl(path,3600).then(({data,error})=>{if(!active)return;if(error||!data)setFailed(true);else setUrl(data.signedUrl)});return()=>{active=false}},[path]);if(failed)return <div className={`${className} grid place-items-center bg-stone-100 text-xs text-stone-400`}>无法预览</div>;if(!url)return <div className={`${className} animate-pulse bg-stone-100`}/>;return <><button type="button" className="block w-full cursor-zoom-in" onClick={e=>{e.stopPropagation();setOpen(true)}}><img src={url} alt="日记照片" loading="lazy" className={`${className} object-cover`}/></button>{open&&<div className="fixed inset-0 z-[80] flex flex-col bg-black/95 p-4" onClick={e=>{e.stopPropagation();setOpen(false)}}><div className="flex justify-end gap-2 pb-3"><a href={url} download={`shudong-${Date.now()}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-xl bg-white/15 px-4 py-2 text-sm text-white" onClick={e=>e.stopPropagation()}><Download size={17}/>下载原图</a><button className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 text-white" onClick={()=>setOpen(false)}><X/></button></div><img src={url} alt="照片大图" className="min-h-0 flex-1 object-contain"/></div>}</>}

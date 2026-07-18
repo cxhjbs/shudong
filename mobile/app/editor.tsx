@@ -241,7 +241,7 @@ export default function Editor() {
             className={`border-b-2 px-2 py-3 ${preview ? "border-sage" : "border-transparent"}`}
           >
             <Text className={preview ? "font-bold text-sage" : "text-brown"}>
-              预览
+              排版效果
             </Text>
           </Pressable>
           <Text className="ml-auto text-xs text-brown">
@@ -250,7 +250,7 @@ export default function Editor() {
         </View>
         {preview ? (
           <View className="min-h-80 rounded-3xl bg-white p-5">
-            <Markdown>{form.content || "*还没有内容*"}</Markdown>
+            {form.content.trim() ? <Markdown>{form.content}</Markdown> : <Text className="text-center text-brown">写下正文后，可在这里检查标题、列表、引用和链接的最终排版。</Text>}
           </View>
         ) : (
           <TextInput
